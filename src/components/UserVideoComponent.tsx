@@ -1,18 +1,23 @@
-"use client";
-import React, { useRef, useEffect } from "react";
-import OpenViduVideoComponent from "./OvVideo";
+'use client';
+import React, { useRef, useEffect } from 'react';
+import OpenViduVideoComponent from './OvVideo';
 
 export default function UserVideoComponent(props: any) {
   const streamComponentRef = useRef<HTMLDivElement>(null);
-  const nickname = JSON.parse(
-    props.streamManager.stream.connection.data
-  ).clientData;
+  const rawData = props.streamManager.stream.connection.data;
+
+  // 데이터를 구분자로 분리
+  const [jsonString] = rawData.split('%/%');
+
+  // JSON 문자열을 파싱
+  let nickname = '';
+  nickname = JSON.parse(jsonString).clientData;
 
   useEffect(() => {
     if (streamComponentRef.current) {
       streamComponentRef.current.id = nickname;
     }
-  }, []);
+  });
 
   return (
     <div>
@@ -23,7 +28,7 @@ export default function UserVideoComponent(props: any) {
               <div className="arrow-head"></div>
             </div>
           </div>
-          <OpenViduVideoComponent streamManager={props.streamManager} />
+          <OpenViduVideoComponent streamManager={props.streamManager} socket={props.socket} />
           <div>
             <p className="nickname">{nickname}</p>
           </div>

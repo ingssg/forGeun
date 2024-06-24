@@ -27,7 +27,7 @@ class Avatar {
     this.morphTargetMeshes = [];
   }
   async init() {
-    const url = "https://assets.codepen.io/9177687/raccoon_head.glb";
+    const url = "/animal_mask/raccoon_head.glb";
     console.log("Loading GLTF from URL:", url);
     const gltf: GLTF = await new Promise((resolve) => {
       const loader = new GLTFLoader();
@@ -70,6 +70,7 @@ class Avatar {
 
 type Props = {
   streamManager: StreamManager;
+  socket: any;
 };
 
 const OpenViduVideoComponent = (props: Props) => {
@@ -78,6 +79,7 @@ const OpenViduVideoComponent = (props: Props) => {
   const btnRef = React.useRef<HTMLDivElement>(null);
   const [avatar] = useState<Avatar | null>(new Avatar());
   const [isChosen, setIsChosen] = useState<boolean>(false);
+  const socket = props.socket;
 
   useEffect(() => {
     const setup = async () => {
@@ -119,6 +121,7 @@ const OpenViduVideoComponent = (props: Props) => {
   }, [videoRef, props.streamManager]);
 
   const handleChoose = () => {
+    const myName = document.querySelector(".pub").querySelector(".nickname");
     const currentNickname = containerRef.current.closest(".streamcomponent").querySelector(".nickname");
     console.log(currentNickname.textContent);
     if(isChosen) {
@@ -127,6 +130,11 @@ const OpenViduVideoComponent = (props: Props) => {
       return;
     }
     containerRef.current.classList.add("chosen-stream");
+    socket.emit('choose', {
+      sender: myName.textContent,
+      receiver: currentNickname.textContent
+    })
+    console.log(myName.textContent, currentNickname.textContent);
     setIsChosen(true);
   }
 

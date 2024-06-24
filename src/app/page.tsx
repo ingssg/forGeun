@@ -1,6 +1,6 @@
-"use client";
-import axios from "axios";
-import { useEffect, useState } from "react";
+'use client';
+import axios from 'axios';
+import { useEffect, useState } from 'react';
 import {
   OpenVidu,
   Session,
@@ -8,17 +8,17 @@ import {
   StreamManager,
   Device,
   Subscriber,
-} from "openvidu-browser";
+} from 'openvidu-browser';
 
 import io from 'socket.io-client';
-import UserVideoComponent from "../components/UserVideoComponent";
+import UserVideoComponent from '../components/UserVideoComponent';
 
-const APPLICATION_SERVER_URL = "http://localhost:5001/";
+const APPLICATION_SERVER_URL = 'http://localhost:3000/';
 
 export default function Home() {
-  const [mySessionId, setMySessionId] = useState<string>("SessionA");
+  // const [mySessionId, setMySessionId] = useState<string>('SessionA');
   const [myUserName, setMyUserName] = useState<string>(
-    "Participant" + Math.floor(Math.random() * 100)
+    'Participant' + Math.floor(Math.random() * 100)
   );
   const [session, setSession] = useState<Session | undefined>(undefined);
   const [mainStreamManager, setMainStreamManager] = useState<any>(undefined);
@@ -32,22 +32,26 @@ export default function Home() {
   const [isMatched, setIsMatched] = useState<boolean>(true);
   const [isChooseMode, setIsChooseMode] = useState<boolean>(false);
   const [isOneToOneMode, setIsOneToOneMode] = useState<boolean>(false);
+  
+  const socket = io('http://localhost:5002/meeting', {
+    transports: ['websocket'],
+  });
 
   // 어떻게든 종료 하면 세션에서 나가게함.
   useEffect(() => {
-    console.log("메인이 실행되었습니다.");
+    console.log('메인이 실행되었습니다.');
     const handleBeforeUnload = () => leaveSession();
-    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      console.log("메인이 종료되었습니다.");
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      console.log('메인이 종료되었습니다.');
     };
   });
 
   // 세션 아이디 변경
-  const handleChangeSessionId = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setMySessionId(e.target.value);
-  };
+  // const handleChangeSessionId = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   setMySessionId(e.target.value);
+  // };
 
   // 유저 이름 변경
   const handleChangeUserName = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,46 +78,23 @@ export default function Home() {
     const newSession = OV.initSession();
     setSession(newSession);
 
-    const socket = io('http://localhost:3000/meeting', {
-      transports: ['websocket'],    
-    });
-    socket.emit('ready', {participantName: myUserName});
+    socket.emit('ready', { participantName: myUserName });
 
-    // 큐 취소 버튼 (추후 추가)
+    socket.on('startCall', async ({ sessionId, token, participantName }) => {
+      console.log('Starting call with sessionId:', sessionId);
 
-    // socket.on('startCall', async ({sessionId, token, participantName}) => {
-       
-    // })
-
-    console.log(socket);
-
-    newSession.on("streamCreated", (event) => {
-      // 새로운 스트림이 생성될 때, 해당 스트림을 구독
-      const subscriber = newSession.subscribe(event.stream, undefined);
-      // 구독한 스트림을 구독자 목록에 추가
-      setSubscribers((prevSubscribers) => [...prevSubscribers, subscriber]);
-    });
-
-    newSession.on("streamDestroyed", (event) => {
-      deleteSubscriber(event.stream.streamManager);
-    });
-
-    newSession.on("exception", (exception) => {
-      console.warn(exception);
-    });
-
-    getToken().then((token) => {
+      // Connect to the session
       newSession
-        .connect(token, { clientData: myUserName })
+        .connect(token, { clientData: participantName })
         .then(async () => {
           const publisher = await OV.initPublisherAsync(undefined, {
             audioSource: undefined,
             videoSource: undefined,
             publishAudio: true,
             publishVideo: true,
-            resolution: "640x480",
+            resolution: '640x480',
             frameRate: 30,
-            insertMode: "APPEND",
+            insertMode: 'APPEND',
             mirror: true,
           });
 
@@ -121,7 +102,7 @@ export default function Home() {
 
           const devices = await OV.getDevices();
           const videoDevices = devices.filter(
-            (device) => device.kind === "videoinput"
+            (device) => device.kind === 'videoinput'
           );
           const currentVideoDeviceId = publisher.stream
             .getMediaStream()
@@ -139,11 +120,26 @@ export default function Home() {
         })
         .catch((error) => {
           console.log(
-            "There was an error connecting to the session:",
+            'There was an error connecting to the session:',
             error.code,
             error.message
           );
         });
+
+      newSession.on('streamCreated', (event) => {
+        // 새로운 스트림이 생성될 때, 해당 스트림을 구독
+        const subscriber = newSession.subscribe(event.stream, undefined);
+        // 구독한 스트림을 구독자 목록에 추가
+        setSubscribers((prevSubscribers) => [...prevSubscribers, subscriber]);
+      });
+
+      newSession.on('streamDestroyed', (event) => {
+        deleteSubscriber(event.stream.streamManager);
+      });
+
+      newSession.on('exception', (exception) => {
+        console.warn(exception);
+      });
     });
   };
 
@@ -154,8 +150,8 @@ export default function Home() {
 
     setSession(undefined);
     setSubscribers([]);
-    setMySessionId("SessionA");
-    setMyUserName("Participant" + Math.floor(Math.random() * 100));
+    // setMySessionId('SessionA');
+    setMyUserName('Participant' + Math.floor(Math.random() * 100));
     setMainStreamManager(undefined);
     setPublisher(undefined);
   };
@@ -165,7 +161,7 @@ export default function Home() {
       const OV = new OpenVidu();
       const devices = await OV.getDevices();
       const videoDevices = devices.filter(
-        (device) => device.kind === "videoinput"
+        (device) => device.kind === 'videoinput'
       );
 
       if (videoDevices.length > 1 && currentVideoDevice) {
@@ -194,48 +190,48 @@ export default function Home() {
     }
   };
 
-  const getToken = async () => {
-    const sessionId = await createSession(mySessionId);
-    return await createToken(sessionId);
-  };
+  // const getToken = async () => {
+  //   const sessionId = await createSession(mySessionId);
+  //   return await createToken(sessionId);
+  // };
 
-  const createSession = async (sessionId: string) => {
-    const response = await axios.post(
-      APPLICATION_SERVER_URL + "api/sessions",
-      { customSessionId: sessionId },
-      { headers: { "Content-Type": "application/json" } }
-    );
-    return response.data as string; // The sessionId
-  };
+  // const createSession = async (sessionId: string) => {
+  //   const response = await axios.post(
+  //     APPLICATION_SERVER_URL + 'api/sessions',
+  //     { customSessionId: sessionId },
+  //     { headers: { 'Content-Type': 'application/json' } }
+  //   );
+  //   return response.data as string; // The sessionId
+  // };
 
-  const createToken = async (sessionId: string) => {
-    const response = await axios.post(
-      APPLICATION_SERVER_URL + "api/sessions/" + sessionId + "/connections",
-      {},
-      { headers: { "Content-Type": "application/json" } }
-    );
-    return response.data as string; // The token
-  };
+  // const createToken = async (sessionId: string) => {
+  //   const response = await axios.post(
+  //     APPLICATION_SERVER_URL + 'api/sessions/' + sessionId + '/connections',
+  //     {},
+  //     { headers: { 'Content-Type': 'application/json' } }
+  //   );
+  //   return response.data as string; // The token
+  // };
 
   const openReal = () => {
-    console.log("openReal");
-    const videoElements = document.querySelectorAll("video");
-    const canvasElements = document.querySelectorAll("canvas");
+    console.log('openReal');
+    const videoElements = document.querySelectorAll('video');
+    const canvasElements = document.querySelectorAll('canvas');
     if (isAvatar) {
       videoElements.forEach((video) => {
-        video.style.display = "block";
+        video.style.display = 'block';
       });
       canvasElements.forEach((canvas) => {
-        canvas.style.display = "none";
+        canvas.style.display = 'none';
       });
       setIsAvatar(false);
       return;
     }
     videoElements.forEach((video) => {
-      video.style.display = "none";
+      video.style.display = 'none';
     });
     canvasElements.forEach((canvas) => {
-      canvas.style.display = "block";
+      canvas.style.display = 'block';
     });
     setIsAvatar(true);
   };
@@ -246,147 +242,155 @@ export default function Home() {
   };
 
   const datass: Array<showArrowProps> = [
-    {from: 'a', to: 'd'},
-    {from: 'b', to: 'e'},
-    {from: 'c', to: 'f'},
-    {from: 'd', to: 'a'},
-    {from: 'e', to: 'b'},
-    {from: 'f', to: 'c'},
+    { from: 'a', to: 'd' },
+    { from: 'b', to: 'e' },
+    { from: 'c', to: 'f' },
+    { from: 'd', to: 'a' },
+    { from: 'e', to: 'b' },
+    { from: 'f', to: 'c' },
   ];
 
   const showArrow = (datas: Array<showArrowProps>) => {
-    const acc = [-2,-1,0,1,2,3];
-    datas.forEach(({from, to}, idx) => {
+    const acc = [-2, -1, 0, 1, 2, 3];
+    datas.forEach(({ from, to }, idx) => {
       const fromUser = document.getElementById(from) as HTMLDivElement;
       const toUser = document.getElementById(to) as HTMLDivElement;
-      const arrowContainer = fromUser?.querySelector('.arrow-container') as HTMLDivElement;
-      const arrowBody = arrowContainer?.querySelector('.arrow-body') as HTMLDivElement;
-      console.log(from, to)
-      console.log(fromUser, toUser, arrowContainer, arrowBody)
-      
+      const arrowContainer = fromUser?.querySelector(
+        '.arrow-container'
+      ) as HTMLDivElement;
+      const arrowBody = arrowContainer?.querySelector(
+        '.arrow-body'
+      ) as HTMLDivElement;
+      console.log(from, to);
+      console.log(fromUser, toUser, arrowContainer, arrowBody);
+
       const rect1 = fromUser.getBoundingClientRect();
       const rect2 = toUser.getBoundingClientRect();
       console.log(rect1, rect2);
-      const centerX1 = (rect1.left + rect1.width / 2) + acc[idx]*10;
-      const centerY1 = rect1.top + rect1.height / 2 + acc[idx]*10;
-      const centerX2 = rect2.left + rect2.width / 2 + acc[idx]*10;
-      const centerY2 = rect2.top + rect2.height / 2 + acc[idx]*10;
-      const halfWidth = Math.abs(rect1.right - rect1.left) * (3/4);
-  
+      const centerX1 = rect1.left + rect1.width / 2 + acc[idx] * 10;
+      const centerY1 = rect1.top + rect1.height / 2 + acc[idx] * 10;
+      const centerX2 = rect2.left + rect2.width / 2 + acc[idx] * 10;
+      const centerY2 = rect2.top + rect2.height / 2 + acc[idx] * 10;
+      const halfWidth = Math.abs(rect1.right - rect1.left) * (3 / 4);
+
       const deltaX = centerX2 - centerX1;
       const deltaY = centerY2 - centerY1;
       const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
       const arrowWidth = distance - halfWidth;
-      
-      if(idx > 2) {
-        arrowBody.style.backgroundColor = '#33C4D7'
-        const arrowHead = arrowBody.querySelector('.arrow-head') as HTMLDivElement;
+
+      if (idx > 2) {
+        arrowBody.style.backgroundColor = '#33C4D7';
+        const arrowHead = arrowBody.querySelector(
+          '.arrow-head'
+        ) as HTMLDivElement;
         arrowHead.style.borderBottom = '20px solid #33C4D7';
       }
       arrowBody.style.width = distance + 'px';
       arrowContainer.style.top = centerY1 - rect1.top + 'px';
       arrowContainer.style.left = centerX1 - rect1.left + 'px';
-      arrowContainer.style.transform = `rotate(${Math.atan2(deltaY, deltaX) * 180 / Math.PI}deg)`;
+      arrowContainer.style.transform = `rotate(${
+        (Math.atan2(deltaY, deltaX) * 180) / Math.PI
+      }deg)`;
       arrowContainer.classList.remove('hidden');
     });
-  }
+  };
 
   const hideArrow = () => {
     const arrowContainers = document.querySelectorAll('.arrow-container');
     arrowContainers.forEach((arrowContainer) => {
       arrowContainer.classList.add('hidden');
     });
-  }
+  };
 
   const changeLoveStickMode = () => {
     const videoContainer =
-      document.getElementsByClassName("video-container")[0];
-    const videoElements = document.querySelectorAll("video");
-    const canvasElements = document.querySelectorAll("canvas");
+      document.getElementsByClassName('video-container')[0];
+    const videoElements = document.querySelectorAll('video');
+    const canvasElements = document.querySelectorAll('canvas');
     videoElements.forEach((video) => {
-      video.style.width = "100%";
-      video.style.height = "100%";
+      video.style.width = '100%';
+      video.style.height = '100%';
     });
     canvasElements.forEach((canvas) => {
-      canvas.style.width = "100%";
-      canvas.style.height = "100%";
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
     });
     if (!isLoveMode) {
-      videoContainer.classList.add("love-stick");
+      videoContainer.classList.add('love-stick');
       showArrow(datass);
       setIsLoveMode(true);
       return;
     }
-    videoContainer.classList.remove("love-stick");
+    videoContainer.classList.remove('love-stick');
     hideArrow();
     setIsLoveMode(false);
   };
 
   const openKeyword = () => {
     const keyword = [
-      "사랑",
-      "행복",
-      "기쁨",
-      "슬픔",
-      "화남",
-      "놀람",
-      "두려움",
-      "짜증",
-      "힘듦",
-      "평화",
-      "음주",
+      '사랑',
+      '행복',
+      '기쁨',
+      '슬픔',
+      '화남',
+      '놀람',
+      '두려움',
+      '짜증',
+      '힘듦',
+      '평화',
+      '음주',
     ];
     const randomNum = Math.floor(Math.random() * 11);
-    const keywordElement = document.getElementsByClassName("keyword")[0];
+    const keywordElement = document.getElementsByClassName('keyword')[0];
     keywordElement.innerHTML = keyword[randomNum];
   };
 
   const setGrayScale = () => {
-    const camElement = document.getElementsByClassName("cam-wrapper")[0];
+    const camElement = document.getElementsByClassName('cam-wrapper')[0];
     if (isMatched) {
-      camElement.classList.add("black-white");
+      camElement.classList.add('black-white');
       setIsMatched(false);
       return;
     }
-    camElement.classList.remove("black-white");
+    camElement.classList.remove('black-white');
     setIsMatched(true);
   };
 
   const setChooseMode = () => {
     // 선택 모드 일 때는 마우스 하버시에 선택 가능한 상태로 변경
     // 클릭 시에 선택된 상태로 변경
-    const chooseBtns = document.getElementsByClassName("choose-btn");
+    const chooseBtns = document.getElementsByClassName('choose-btn');
     const btnArray = Array.from(chooseBtns);
     if (isChooseMode) {
       btnArray.forEach((btn) => {
-        btn.classList.add("hidden");
+        btn.classList.add('hidden');
       });
 
       setIsChooseMode(false);
       return;
     }
     btnArray.forEach((btn) => {
-      btn.classList.remove("hidden");
+      btn.classList.remove('hidden');
     });
     setIsChooseMode(true);
   };
 
   const setOneToOneMode = () => {
     const videoContainer =
-      document.getElementsByClassName("video-container")[0];
-    const videoElements = document.querySelectorAll("video");
-    const canvasElements = document.querySelectorAll("canvas");
-    const streamElements = document.getElementsByClassName("stream-container");
+      document.getElementsByClassName('video-container')[0];
+    const videoElements = document.querySelectorAll('video');
+    const canvasElements = document.querySelectorAll('canvas');
+    const streamElements = document.getElementsByClassName('stream-container');
     videoElements.forEach((video) => {
-      video.style.width = "100%";
-      video.style.height = "100%";
+      video.style.width = '100%';
+      video.style.height = '100%';
     });
     canvasElements.forEach((canvas) => {
-      canvas.style.width = "100%";
-      canvas.style.height = "100%";
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
     });
     if (!isOneToOneMode) {
-      videoContainer.classList.add("one-one-four");
+      videoContainer.classList.add('one-one-four');
       for (let i = 0; i < streamElements.length; i++) {
         const className = String.fromCharCode(97 + i);
         streamElements[i].classList.add(className);
@@ -394,7 +398,7 @@ export default function Home() {
       setIsOneToOneMode(true);
       return;
     }
-    videoContainer.classList.remove("one-one-four");
+    videoContainer.classList.remove('one-one-four');
     for (let i = 0; i < streamElements.length; i++) {
       const className = String.fromCharCode(97 + i);
       streamElements[i].classList.remove(className);
@@ -426,7 +430,7 @@ export default function Home() {
                   required
                 />
               </p>
-              <p>
+              {/* <p>
                 <label> Session: </label>
                 <input
                   className="form-control"
@@ -436,7 +440,7 @@ export default function Home() {
                   onChange={handleChangeSessionId}
                   required
                 />
-              </p>
+              </p> */}
               <p className="text-center">
                 <input
                   className="btn btn-lg btn-success"
@@ -453,7 +457,7 @@ export default function Home() {
       {session !== undefined ? (
         <div id="session">
           <div id="session-header">
-            <h1 id="session-title">{mySessionId}</h1>
+            {/* <h1 id="session-title">{mySessionId}</h1> */}
             <input
               className="btn btn-large btn-danger"
               type="button"
@@ -489,20 +493,20 @@ export default function Home() {
           <div className="col-md-6 video-container">
             {publisher !== undefined ? (
               <div
-                className="stream-container col-md-6 col-xs-6"
+                className="stream-container col-md-6 col-xs-6 pub"
                 onClick={() => handleMainVideoStream(publisher)}
               >
-                <UserVideoComponent streamManager={publisher} />
+                <UserVideoComponent streamManager={publisher} socket={socket}/>
               </div>
             ) : null}
             {subscribers.map((sub, i) => (
               <div
                 key={sub.id}
-                className="stream-container col-md-6 col-xs-6"
+                className="stream-container col-md-6 col-xs-6 sub"
                 onClick={() => handleMainVideoStream(sub)}
               >
                 <span>{sub.id}</span>
-                <UserVideoComponent streamManager={sub} />
+                <UserVideoComponent streamManager={sub} socket={socket}/>
               </div>
             ))}
           </div>
